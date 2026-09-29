@@ -1,4 +1,5 @@
 import os
+import tempfile
 import streamlit as st
 
 from backend import convert_xml
@@ -10,10 +11,49 @@ st.set_page_config(
 
 st.title("XML to JSON Agent")
 
-file_path = st.text_input(
-    "Enter XML file path",
-    placeholder=r"C:\Users\Aryan Singh\Downloads\sample_employees.xml"
+input_type = st.radio(
+    "Choose input method",
+    ["Upload XML File", "Enter File Path"],
+    horizontal=True
 )
+
+file_path = None
+
+if input_type == "Upload XML File":
+
+    uploaded_file = st.file_uploader(
+        "Upload XML file",
+        type=["xml"]
+    )
+
+    if uploaded_file:
+
+        temp_dir = tempfile.gettempdir()
+
+        file_path = os.path.join(
+            temp_dir,
+            uploaded_file.name
+        )
+
+        with open(
+            file_path,
+            "wb"
+        ) as f:
+            f.write(
+                uploaded_file.getbuffer()
+            )
+
+        st.success(
+            f"File uploaded: {uploaded_file.name}"
+        )
+
+else:
+
+    file_path = st.text_input(
+        "Enter XML file path",
+        placeholder=r"C:\Users\Aryan Singh\Downloads\sample_employees.xml"
+    )
+
 
 instruction = st.text_area(
     "What do you want to do?",
@@ -25,12 +65,15 @@ instruction = st.text_area(
 )
 
 
-if st.button("Convert"):
+if st.button(
+    "Convert",
+    type="primary"
+):
 
     if not file_path:
 
         st.warning(
-            "Enter an XML file path."
+            "Please upload an XML file or enter a file path."
         )
 
     elif not os.path.exists(file_path):
@@ -42,13 +85,13 @@ if st.button("Convert"):
     elif not instruction:
 
         st.warning(
-            "Enter what you want to do with the XML."
+            "Please enter what you want to do with the XML."
         )
 
     else:
 
         with st.spinner(
-            "Agent is deciding..."
+            "Agent is deciding how to convert the XML..."
         ):
 
             result = convert_xml(
@@ -56,20 +99,40 @@ if st.button("Convert"):
                 instruction
             )
 
+        if result["method"] == "LLM":
+
+            st.info(
+                "🤖 LLM was used for this conversion."
+            )
+
+        else:
+
+            st.info(
+                "🔧 XML Parser Tool was used for this conversion."
+            )
+
         st.success(
             "Conversion completed!"
         )
 
-        st.write(
-            "Method used:",
-            result["method"]
-        )
-
         st.subheader("JSON")
 
-        st.json(
-            result["result"]
-        )
+        try:
+
+            import json
+
+            json_data = json.loads(
+                result["result"]
+            )
+
+            st.json(json_data)
+
+        except:
+
+            st.code(
+                result["result"],
+                language="json"
+            )
 
         output_path = (
             os.path.splitext(file_path)[0]
